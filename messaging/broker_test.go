@@ -19,9 +19,14 @@ import (
 	"github.com/influxdb/influxdb/raft"
 )
 
+var (
+	testDataURL *url.URL
+)
+
 func init() {
 	// Ensure the broker matches the handler's interface.
 	_ = messaging.Handler{Broker: messaging.NewBroker()}
+	testDataURL, _ = url.Parse("http://localhost:1234/data")
 }
 
 // Ensure that opening a broker without a path returns an error.
@@ -37,7 +42,7 @@ func TestBroker_Close_ErrClosed(t *testing.T) {
 	b := NewBroker()
 	b.Close()
 	if err := b.Broker.Close(); err != messaging.ErrClosed {
-		t.Fatalf("unexpected error: %s", err)
+		t.Fatalf("unexpected error: %s`", err)
 	}
 }
 
@@ -124,12 +129,18 @@ func TestBroker_Apply_SetMaxTopicIndex(t *testing.T) {
 	if err := b.Apply(&messaging.Message{
 		Index: 2,
 		Type:  messaging.SetTopicMaxIndexMessageType,
-		Data:  []byte{0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 5}, // topicID=20, index=5
+		Data: []byte{0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 5, // topicID=20, index=5,
+			0, 26, 104, 116, 116, 112, 58, 47, 47, 108, 111, 99, 97, 108, //len=26, url="http://localhost:1234/data"
+			104, 111, 115, 116, 58, 49, 50, 51, 52, 47, 100, 97, 116, 97},
 	}); err != nil {
 		t.Fatalf("apply error: %s", err)
 	}
+
 	if topic := b.Topic(20); topic.Index() != 5 {
 		t.Fatalf("unexpected topic index: %d", topic.Index())
+	}
+	if topic := b.Topic(20); topic.IndexForURL(*testDataURL) != 5 {
+		t.Fatalf("unexpected topic url index: %d", topic.IndexForURL(*testDataURL))
 	}
 }
 
@@ -239,12 +250,15 @@ func TestBroker_SetTopicMaxIndex(t *testing.T) {
 			t.Fatalf("unexpected topic id data: %x", data[0:8])
 		} else if !bytes.Equal(m.Data[8:16], []byte{0, 0, 0, 0, 0, 0, 0, 2}) {
 			t.Fatalf("unexpected index data: %x", data[8:16])
+		} else if !bytes.Equal(m.Data[16:44], []byte{0, 26, 104, 116, 116, 112, 58, 47,
+			47, 108, 111, 99, 97, 108, 104, 111, 115, 116, 58, 49, 50, 51, 52, 47, 100, 97, 116, 97}) {
+			t.Fatalf("unexpected url data: %v", m.Data[16:44])
 		}
 		return 1, nil
 	}
 
 	// Set the highest replicated topic index.
-	if err := b.SetTopicMaxIndex(1, 2); err != nil {
+	if err := b.SetTopicMaxIndex(1, 2, *testDataURL); err != nil {
 		t.Fatal(err)
 	}
 }

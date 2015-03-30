@@ -23,7 +23,7 @@ import (
 	"github.com/influxdb/influxdb/udp"
 )
 
-func Run(config *Config, join, version string) (*messaging.Broker, *influxdb.Server) {
+func Run(config *Config, join, version string) (*messaging.Broker, *influxdb.Server, *raft.Log) {
 	log.Printf("influxdb started, version %s, commit %s", version, commit)
 
 	var initBroker, initServer bool
@@ -217,7 +217,7 @@ func Run(config *Config, join, version string) (*messaging.Broker, *influxdb.Ser
 		}
 	}
 
-	return b.Broker, s
+	return b.Broker, s, l
 }
 
 // write the current process id to a file specified by path.

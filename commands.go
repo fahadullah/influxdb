@@ -1,6 +1,7 @@
 package influxdb
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/influxdb/influxdb/influxql"
@@ -69,6 +70,8 @@ type createShardGroupIfNotExistsCommand struct {
 	Database  string    `json:"database"`
 	Policy    string    `json:"policy"`
 	Timestamp time.Time `json:"timestamp"`
+	// This is used to register the shard w/ the broker
+	URL *url.URL `json:"url"`
 }
 
 type deleteShardGroupCommand struct {

@@ -18,7 +18,7 @@ type MessagingClient struct {
 	messagesByTopicID map[uint64][]*messaging.Message // message by topic
 
 	PublishFunc func(*messaging.Message) (uint64, error)
-	ConnFunc    func(topicID uint64) influxdb.MessagingConn
+	ConnFunc    func(topicID uint64, dataURL *url.URL) influxdb.MessagingConn
 }
 
 // NewMessagingClient returns a new instance of MessagingClient.
@@ -72,17 +72,17 @@ func (c *MessagingClient) DefaultPublishFunc(m *messaging.Message) (uint64, erro
 	return m.Index, nil
 }
 
-func (c *MessagingClient) Conn(topicID uint64) influxdb.MessagingConn {
-	return c.ConnFunc(topicID)
+func (c *MessagingClient) Conn(topicID uint64, dataURL *url.URL) influxdb.MessagingConn {
+	return c.ConnFunc(topicID, dataURL)
 }
 
 // DefaultConnFunc returns a connection for a specific topic.
-func (c *MessagingClient) DefaultConnFunc(topicID uint64) influxdb.MessagingConn {
+func (c *MessagingClient) DefaultConnFunc(topicID uint64, dataURL *url.URL) influxdb.MessagingConn {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	// Create new connection.
-	conn := NewMessagingConn(topicID)
+	conn := NewMessagingConn(topicID, dataURL)
 
 	// Track connections.
 	c.conns = append(c.conns, conn)
@@ -111,13 +111,15 @@ type MessagingConn struct {
 	mu      sync.Mutex
 	topicID uint64
 	index   uint64
+	dataURL *url.URL
 	c       chan *messaging.Message
 }
 
 // NewMessagingConn returns a new instance of MessagingConn.
-func NewMessagingConn(topicID uint64) *MessagingConn {
+func NewMessagingConn(topicID uint64, dataURL *url.URL) *MessagingConn {
 	return &MessagingConn{
 		topicID: topicID,
+		dataURL: dataURL,
 	}
 }
 
